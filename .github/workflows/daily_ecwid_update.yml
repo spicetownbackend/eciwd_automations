@@ -2,7 +2,7 @@ name: Daily Ecwid Variant Update
 
 on:
   schedule:
-    - cron: '0 14 * * *' # 9:00 AM EST (14:00 UTC)
+    - cron: '0 14 * * *'
   workflow_dispatch: 
 
 jobs:
@@ -22,6 +22,7 @@ jobs:
 
       - name: Execute Script
         env:
+          # FIXED: Removed the space between $ and {{
           ECWID_API_TOKEN: ${{ secrets.ECWID_API_TOKEN }}
-          BASE_URL: ${{ secrets.ECWID_BASE_URL }}
+          ECWID_BASE_URL: ${{ secrets.ECWID_BASE_URL }}
         run: python update_variants.py

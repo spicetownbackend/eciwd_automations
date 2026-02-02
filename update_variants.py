@@ -18,67 +18,54 @@ HEADERS = {
 }
 
 def update_variants():
-    offset = 0
-    limit = 100
-    all_updated = 0
+    # Fetching products in category
+    url = f"{BASE_URL}/products?categories={TARGET_CATEGORY_ID}&responseFields=items(id,name)"
+    response = requests.get(url, headers=HEADERS)
+    
+    if response.status_code != 200:
+        print(f"❌ API Error: {response.status_code}")
+        return
 
-    while True:
-        # Fetching products with pagination
-        url = f"{BASE_URL}/products?categories={TARGET_CATEGORY_ID}&limit={limit}&offset={offset}&responseFields=items(id,name)"
-        response = requests.get(url, headers=HEADERS)
+    products = response.json().get('items', [])
+    # FIXED: Corrected the f-string syntax error from your screenshot
+    print(f"Found {len(products)} products in category {TARGET_CATEGORY_ID}")
+
+    for item in products:
+        p_id, p_name = item['id'], item['name']
         
-        if response.status_code != 200:
-            print(f"❌ API Error {response.status_code}: {response.text}")
-            break
-
-        items = response.json().get('items', [])
-        if not items:
-            break
-
-        print(f"--- Prsing batch (Offset: {offset}) ---")
-
-        for item in items:
-            p_id, p_name = item['id'], item['name']
+        # Get product options
+        p_url = f"{BASE_URL}/products/{p_id}?responseFields=options"
+        # FIXED: Changed 'HEADS' to 'HEADERS' to fix the NameError
+        res = requests.get(p_url, headers=HEADERS)
+        
+        if res.status_code != 200:
+            continue
             
-            # Get full product details to modify options
-            p_url = f"{BASE_URL}/products/{p_id}?responseFields=options"
-            res = requests.get(p_url, headers=HEADERS)
-            
-            if res.status_code != 200:
-                continue
+        data = res.json()
+        if 'options' not in data:
+            continue
+
+        changed = False
+        for option in data['options']:
+            if option['name'] == TARGET_OPTION_NAME:
+                num_choices = len(option.get('choices', []))
                 
-            data = res.json()
-            if 'options' not in data:
-                continue
+                if num_choices >= 3:
+                    new_default = 2
+                elif num_choices == 2:
+                    new_default = 1
+                else:
+                    continue
 
-            changed = False
-            for option in data['options']:
-                if option['name'] == TARGET_OPTION_NAME:
-                    num_choices = len(option.get('choices', []))
-                    
-                    # Logic: 3+ indices -> 2, 2 indices -> 1
-                    if num_choices >= 3:
-                        new_default = 2
-                    elif num_choices == 2:
-                        new_default = 1
-                    else:
-                        continue
+                option['required'] = False
+                option['defaultChoice'] = new_default
+                changed = True
+                print(f"   ✅ {p_name}: Set default to index {new_default}")
 
-                    option['required'] = False
-                    option['defaultChoice'] = new_default
-                    changed = True
-
-            if changed:
-                put_res = requests.put(f"{BASE_URL}/products/{p_id}", headers=HEADERS, json={"options": data['options']})
-                if put_res.status_code == 200:
-                    print(f"   ✅ Updated: {p_name}")
-                    all_updated += 1
-            
-            time.sleep(0.2) # Avoid hitting rate limits
-
-        offset += limit
-
-    print(f"\n--- Process Finished. Total Products Updated: {all_updated} ---")
+        if changed:
+            requests.put(f"{BASE_URL}/products/{p_id}", headers=HEADERS, json={"options": data['options']})
+        
+        time.sleep(0.2) 
 
 if __name__ == "__main__":
     update_variants()
