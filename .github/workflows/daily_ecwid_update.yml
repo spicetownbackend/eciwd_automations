@@ -1,0 +1,28 @@
+name: Daily Ecwid Variant Update
+
+on:
+  schedule:
+    # 14:00 UTC = 9:00 AM EST
+    - cron: '0 14 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  run-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Requests
+        run: pip install requests
+
+      - name: Execute Script
+        env:
+          ECWID_API_TOKEN: ${{ secrets.ECWID_API_TOKEN }}
+          BASE_URL: ${{ secrets.ECWID_BASE_URL }}
+        run: python update_variants.py
