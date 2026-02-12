@@ -2,7 +2,7 @@ name: Daily Ecwid Variant Update
 
 on:
   schedule:
-    - cron: '0 14 * * *'
+    - cron: '0 14 * * *' # Runs at 14:00 UTC (9:00 AM EST)
   workflow_dispatch: 
 
 jobs:
@@ -17,12 +17,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Requests
+      - name: Install Dependencies
         run: pip install requests
 
       - name: Execute Script
         env:
-          # FIXED: Removed the space between $ and {{
           ECWID_API_TOKEN: ${{ secrets.ECWID_API_TOKEN }}
           ECWID_BASE_URL: ${{ secrets.ECWID_BASE_URL }}
+          # 👇 YOU MUST ADD THESE FOR EMAIL TO WORK
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
+          EMAIL_CC: ${{ secrets.EMAIL_CC }}
         run: python update_variants.py
