@@ -48,7 +48,7 @@ def send_email_report(stats):
     if stats['errors'] > 0:
         status_tag = "[WARNING]" 
     elif stats['updated'] > 0:
-        status_tag = "[SUCCESS]"  
+        status_tag = "[SUCCESS]"
     else:
         status_tag = "[NO CHANGES]"
 
@@ -115,7 +115,7 @@ def update_products():
 
         products = response.json().get('items', [])
         if not products:
-        t("✅ End of list reached.")
+            print("✅ End of list reached.")
             break
 
         print(f"   ... Processing batch {offset} to {offset + len(products)}")
@@ -141,7 +141,7 @@ def update_products():
             # --- TASK B: FIX VARIANT DEFAULTS ---
             for option in options:
                 if option['name'] == TARGET_OPTION_NAME:
-              num_choices = len(option.get('choices', []))
+                    num_choices = len(option.get('choices', []))
                     current_default = option.get('defaultChoice')
                     new_default = None
 
@@ -161,7 +161,7 @@ def update_products():
                 input_found = False
                 for option in options:
                     if option['name'] == TARGET_INPUT_FIELD['name'] and option['type'] == TARGET_INPUT_FIELD['type']:
-                        input_found = Te
+                        input_found = True
                         break
                 
                 if not input_found:
@@ -185,7 +185,9 @@ def update_products():
                         stats['errors'] += 1
                 except Exception as e:
                     print(f"      ❌ Network error on {p_name}: {e}")
-                    stats['errors'] +=      offset += limit
+                    stats['errors'] += 1
+
+        offset += limit
 
     print(f"🎉 Job Done. Stats: {stats}")
     send_email_report(stats)
