@@ -48,7 +48,7 @@ def send_email_report(stats):
     if stats['errors'] > 0:
         status_tag = "[WARNING]" 
     elif stats['updated'] > 0:
-        status_tag = "[SUCCESS]  else:
+        status_tag = "[SUCCESS]"  else:
         status_tag = "[NO CHANGES]"
 
     subject = f"{status_tag} Ecwid Sync Repair: {today_str}"
