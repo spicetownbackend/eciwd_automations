@@ -13,14 +13,27 @@ EMAIL_USER = os.getenv('EMAIL_USER')
 EMAIL_PASS = os.getenv('EMAIL_PASS')
 EMAIL_CC = os.getenv('EMAIL_CC')
 
-# TARGETS
+# --- TARGETS ---
 TARGET_CATEGORY_ID = 194057007
 TARGET_OPTION_NAME = "Variant"
+
+# --- INPUT FIELD CONFIG ---
+
+# 1. DELETE THESE: List of exact names to remove (Case Sensitive)
+REMOVE_OPTION_NAMES = ["Message", "Special Instructions", "Special Instructions/Customization Notes"] 
+
+# 2. ADD/ENSURE THIS: The field we want to keep/add
+ENSURE_INPUT_FIELD = True
+TARGET_INPUT_FIELD = {
+    "type": "TEXTAREA",
+    "name": "Customization Notes/Special Instructions",
+    "required": False,
+    "choices": []
+}
 
 # CHECK ENV VARS
 if not all([API_TOKEN, BASE_URL, EMAIL_USER, EMAIL_PASS]):
     print("❌ ERROR: Missing environment variables.")
-    print("   Required: ECWID_API_TOKEN, ECWID_BASE_URL, EMAIL_USER, EMAIL_PASS")
     exit(1)
 
 HEADERS = {
@@ -32,31 +45,28 @@ def send_email_report(stats):
     print("📧 Sending Email Notification...")
     today_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    # Determine Status Tag
     if stats['errors'] > 0:
         status_tag = "[WARNING]" 
     elif stats['updated'] > 0:
-        status_tag = "[SUCCESS]"
-    else:
+        status_tag = "[SUCCESS]  else:
         status_tag = "[NO CHANGES]"
 
-    subject = f"{status_tag} Ecwid Variant Update: {today_str}"
+    subject = f"{status_tag} Ecwid Sync Repair: {today_str}"
     
-    # HTML Body
     body = f"""
     <html><body>
-        <h2>Ecwid Variant Update Report</h2>
+        <h2>Ecwid Sync Repair Report</h2>
         <p><b>Run Date:</b> {today_str}</p>
         <p><b>Target Category:</b> {TARGET_CATEGORY_ID}</p>
         <hr>
         <h3>Summary Stats:</h3>
         <ul>
             <li><b>Total Scanned:</b> {stats['scanned']}</li>
-            <li><b>Updated:</b> {stats['updated']}</li>
+            <li><b>Products Updated:</b> {stats['updated']}</li>
             <li><b>Errors:</b> {stats['errors']}</li>
         </ul>
         <hr>
-        <p><i>This is an automated message from your GitHub Action.</i></p>
+        <p><i>Automated repair for Clover sync overwrites.</i></p>
     </body></html>
     """
 
@@ -66,7 +76,6 @@ def send_email_report(stats):
         msg['To'] = EMAIL_USER 
         msg['Subject'] = subject
         
-        # Build Recipient List
         recipients = [EMAIL_USER]
         if EMAIL_CC and EMAIL_CC.strip():
             msg['Cc'] = EMAIL_CC
@@ -74,7 +83,6 @@ def send_email_report(stats):
 
         msg.attach(MIMEText(body, 'html'))
 
-        # SMTP Sending
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
         server.login(EMAIL_USER, EMAIL_PASS)
@@ -85,20 +93,15 @@ def send_email_report(stats):
     except Exception as e:
         print(f"   ❌ [Error] Failed to send email: {e}")
 
-def update_variants_with_email():
-    stats = {
-        'scanned': 0,
-        'updated': 0,
-        'errors': 0
-    }
-    
+def update_products():
+    stats = { 'scanned': 0, 'updated': 0, 'errors': 0 }
     offset = 0
     limit = 100
 
-    print(f"🚀 Starting update for Category {TARGET_CATEGORY_ID}...")
+    print(f"🚀 Starting repair for Category {TARGET_CATEGORY_ID}...")
 
     while True:
-        # 1. Fetch products with pagination (Fixing the 100 limit bug)
+        # 1. Fetch products
         url = f"{BASE_URL}/products?categories={TARGET_CATEGORY_ID}&offset={offset}&limit={limit}&responseFields=items(id,name,options)"
         
         try:
@@ -110,9 +113,8 @@ def update_variants_with_email():
             break
 
         products = response.json().get('items', [])
-        
         if not products:
-            print("✅ End of list reached.")
+        t("✅ End of list reached.")
             break
 
         print(f"   ... Processing batch {offset} to {offset + len(products)}")
@@ -122,14 +124,23 @@ def update_variants_with_email():
             p_id, p_name = item.get('id'), item.get('name')
             options = item.get('options', [])
             
-            if not options: continue
+            if options is None: options = []
 
             changed = False
             
-            # 2. Logic Check
+            # --- TASK A: DELETE UNWANTED OPTIONS ---
+            # We recreate the list, keeping only options that are NOT in the remove list
+            original_count = len(options)
+            options = [opt for opt in options if opt['name'] not in REMOVE_OPTION_NAMES]
+            
+            if len(options) < original_count:
+                print(f"      🗑️  {p_name}: Deleted {original_count - len(options)} unwanted option(s).")
+                changed = True
+
+            # --- TASK B: FIX VARIANT DEFAULTS ---
             for option in options:
                 if option['name'] == TARGET_OPTION_NAME:
-                    num_choices = len(option.get('choices', []))
+              num_choices = len(option.get('choices', []))
                     current_default = option.get('defaultChoice')
                     new_default = None
 
@@ -139,12 +150,25 @@ def update_variants_with_email():
                         new_default = 1
                     
                     if new_default is not None and current_default != new_default:
-                        print(f"      📝 {p_name}: Default {current_default} -> {new_default}")
+                        print(f"      📝 {p_name}: Correcting Default Variant {current_default} -> {new_default}")
                         option['required'] = False
                         option['defaultChoice'] = new_default
                         changed = True
 
-            # 3. Update Call
+            # --- TASK C: ENSURE TARGET INPUT FIELD ---
+            if ENSURE_INPUT_FIELD:
+                input_found = False
+                for option in options:
+                    if option['name'] == TARGET_INPUT_FIELD['name'] and option['type'] == TARGET_INPUT_FIELD['type']:
+                        input_found = Te
+                        break
+                
+                if not input_found:
+                    print(f"      ➕ {p_name}: Adding missing input field '{TARGET_INPUT_FIELD['name']}'")
+                    options.append(TARGET_INPUT_FIELD.copy())
+                    changed = True
+
+            # --- UPDATE CALL ---
             if changed:
                 try:
                     res = requests.put(
@@ -154,19 +178,16 @@ def update_variants_with_email():
                     )
                     if res.status_code == 200:
                         stats['updated'] += 1
-                        time.sleep(0.2) # Rate limit safety
+                        time.sleep(0.2) 
                     else:
                         print(f"      ❌ Failed to update {p_name}: {res.status_code}")
                         stats['errors'] += 1
                 except Exception as e:
                     print(f"      ❌ Network error on {p_name}: {e}")
-                    stats['errors'] += 1
+                    stats['errors'] +=      offset += limit
 
-        offset += limit
-
-    # 4. Final Report
     print(f"🎉 Job Done. Stats: {stats}")
     send_email_report(stats)
 
 if __name__ == "__main__":
-    update_variants_with_email()
+    update_products()
