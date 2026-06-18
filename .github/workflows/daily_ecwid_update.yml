@@ -2,7 +2,7 @@ name: Daily Ecwid Variant Update
 
 on:
   schedule:
-    - cron: '0 14 * * *' # Runs at 14:00 UTC (9:00 AM EST)
+    #- cron: '0 14 * * *' # Runs at 14:00 UTC (9:00 AM EST)
   workflow_dispatch: 
 
 jobs:
